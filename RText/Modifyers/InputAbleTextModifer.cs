@@ -7,14 +7,17 @@ using UnityEngine.Events;
 using UnityEngine.EventSystems;
 namespace RText
 {
-    public class InputAbleTextModifer : RectEntryModifyer, IPointerClickHandler
+    public class InputAbleTextModifer : RectEntryModifyer/*, IPointerClickHandler*/
     {
         private InputField inputFieldPrefab;
         readonly Dictionary<string, Entry> _entryTable = new Dictionary<string, Entry>();
         private Dictionary<RectEntry, InputFieldEntry> relatDic = new Dictionary<RectEntry, InputFieldEntry>();
         private List<InputFieldEntry> inputFieldEntrys = new List<InputFieldEntry>();
+        private List<int> disabled = new List<int>();
+
         private bool modifyed;
-        class InputFieldEntry
+        public InputFieldEntry[] CreatedItems { get {return inputFieldEntrys.ToArray(); } }
+        public class InputFieldEntry
         {
             public bool active = false;
             public int index;
@@ -25,15 +28,14 @@ namespace RText
 
             public void Init(int index, InputField InputPrefab, Text parent, Action<int, string> onEndEdit)
             {
-                Debug.Log("Init:" + index);
+                //Debug.Log("Init:" + index);
                 this.index = index;
                 this.onEndEdit = onEndEdit;
                 this.InputPrefab = InputPrefab;
                 this.parent = parent;
                 active = true;
             }
-
-            public void SetRect(Rect rect)
+            public void SetRect(Rect rect,bool interactable)
             {
                 if (inputField == null)
                 {
@@ -43,6 +45,7 @@ namespace RText
                     inputField.onEndEdit.AddListener((x) => onEndEdit.Invoke(index, x));
                     inputField.gameObject.SetActive(true);
                 }
+                inputField.interactable = interactable;
                 var rectTransform = inputField.transform as RectTransform;
                 rectTransform.localPosition = rect.position;
                 rectTransform.sizeDelta = new Vector2(rect.size.x, parent.fontSize);
@@ -132,18 +135,24 @@ namespace RText
 
         public void UpdateInputFields()
         {
+            //Debug.Log("UpdateInputFields:" + entries.Count);
             var index = 0;
             for (index = 0; index < entries.Count; index++)
             {
                 var rEntry = entries[index];
-                if (rEntry.Rects.Count == 0) continue;
+                Debug.Assert(rEntry.Rects.Count != 0);
                 var rect = entries[index].Rects[0];
                 if (relatDic.ContainsKey(rEntry))
                 {
                     var inputEntry = relatDic[rEntry];
-                    inputEntry.SetRect(rect);
+                    inputEntry.SetRect(rect, !disabled.Contains(index));
+                }
+                else
+                {
+                    Debug.Log(rect);
                 }
             }
+
             for (int i = index; i < inputFieldEntrys.Count; i++)
             {
                 var item = inputFieldEntrys[i];
@@ -151,23 +160,22 @@ namespace RText
                     item.inputField.gameObject.SetActive(false);
             }
         }
-
-        public void OnPointerClick(PointerEventData eventData)
+        public void ClearInputFields()
         {
-            var localPosition = ToLocalPosition(eventData.position, eventData.pressEventCamera);
-
-            for (int i = 0; i < entries.Count; i++)
+            if(inputFieldEntrys != null)
+            foreach (var item in inputFieldEntrys)
             {
-                for (int j = 0; j < entries[i].Rects.Count; j++)
-                {
-                    if (entries[i].Rects[j].Contains(localPosition))
-                    {
-                        var rEntry = entries[i];
-                        Debug.Log(rEntry);
-                        break;
-                    }
-                }
+                if (item != null && item.inputField != null)
+                    item.inputField.text = "";
             }
+        }
+        public void DisableInputField(int id)
+        {
+            disabled.Add(id);
+        }
+        public void ClearDisabled()
+        {
+            disabled.Clear();
         }
     }
 }
